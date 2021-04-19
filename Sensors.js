@@ -1,0 +1,134 @@
+import React from 'react'
+import Sensor from './Sensor.js'
+import Search from './Search.js'
+import SelectState from './SelectState.js'
+
+/**
+ * Sensors class is responsible to fetch the data from the /owner API.
+ * It is also repsonsible for creating a page with a maximum number of data
+ * per page of 9, creating a next and previeous buttons as well as a search
+ * bar to search for particular nickname.
+ * A filter bar is responsible for showing only results with the fire value set to TRUE or FALSE.
+ * Additional event handlers are also used in this page.
+ */
+class Sensors extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            page:1,
+            pageSize:9,
+            query:"",
+            data:[]
+        }
+        this.handleSearch = this.handleSearch.bind(this);
+
+    }
+
+    dataCallback = (data) => {
+        console.log(data)
+        if (data.status !== 200) {
+            this.setState({"authenticated":false})
+            localStorage.removeItem('myToken');
+        }
+    }
+
+    postData = (url, myJSON, callback) => {
+        fetch(url, {   method: 'POST',
+            headers :new Headers(),
+            body:JSON.stringify(myJSON)})
+            .then( (response) => response.json() )
+            .then( (data) => {
+                console.log(data);
+                this.setState({data:data.data})
+            })
+            .catch ((err) => {
+                    console.log("something went wrong ", err)
+                }
+            );
+    }
+
+     
+    componentDidMount() {
+        const url = "http://unn-w18013241.newnumyspace.co.uk/kf6012/team/api/owner"
+        if (localStorage.getItem('myToken')) {
+            let myToken = localStorage.getItem('myToken')
+            let myJSON = {
+                "token":myToken,
+            }
+            console.log(myJSON);
+            this.postData(url, myJSON, this.dataCallback)
+        } else {
+            this.setState({"authenticated":false})
+        }
+    }
+
+    handleMoreClick = () => {
+        this.setState({page:this.state.page+1})
+    }
+
+    handlePreviousClick = () => {
+        this.setState({page:this.state.page-1})
+    }
+
+    handleNextClick = () => {
+        this.setState({page:this.state.page+1})
+    }
+
+    handleSearch = (e) => {
+        this.setState({page:1,query:e.target.value})
+    }
+
+    searchString = (s) => {
+        return s.toLowerCase().includes(this.state.query.toLowerCase())
+    }
+
+    searchDetails = (details) => {
+        return (this.searchString(details.nickname) || this.searchString(details.deviceId))
+    }
+
+    handleStateSelect = (e) => {
+        this.setState({page:1, fire:e.target.value})
+    }
+
+    selectStateDetails = (details) => {
+        return ((this.state.fire === "" ) || (this.state.fire === details.fire))
+    }
+
+
+    render() {
+
+    let filteredData =  (
+        this.state.data
+            .filter(this.searchDetails)
+            .filter(this.selectStateDetails)
+
+    )
+
+
+
+    let noOfPages = Math.ceil(filteredData.length/this.state.pageSize)
+    if (noOfPages === 0) {noOfPages=1}
+    let disabledPrevious = (this.state.page <= 1)
+    let disabledNext = (this.state.page >= noOfPages)
+
+    return (
+        <div>
+        <h1>Devices</h1>
+
+        <Search query={this.state.query} handleSearch={this.handleSearch}/>
+        <SelectState fire={this.state.fire} handleStateSelect={this.handleStateSelect} />
+    {
+        filteredData
+            .slice(((this.state.pageSize*this.state.page)-this.state.pageSize),(this.state.pageSize*this.state.page))
+            .map( (details, i) => (<Sensor key={i} details={details} />) )
+    }
+
+    <button onClick={this.handlePreviousClick} disabled={disabledPrevious}>Previous</button>
+    Page {this.state.page} of {noOfPages}
+    <button onClick={this.handleNextClick} disabled={disabledNext}>Next</button>
+        </div>
+);
+}
+}
+
+export default Sensors;
